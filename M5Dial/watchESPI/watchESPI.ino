@@ -1,5 +1,12 @@
 #include "driver/temp_sensor.h"
 #include "M5Dial.h"
+#include "WiFi.h"
+
+#define DEBUGTRACEMARK(s) Serial.printf(s)
+
+const char* wifi_ssid=nullptr;  //  enter your wifi ssid. if nullptr, use ssid of the previous successful connection
+const char* wifi_passphrase="PASSPHRASE";
+
 M5Canvas img(&M5Dial.Display);
 
 #include <TFT_eSPI.h>
@@ -36,8 +43,9 @@ int r=116;
 int sx=120;
 int sy=120;
 
-String cc[12]={"45","40","35","30","25","20","15","10","05","0","55","50"};
-String days[]={"SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"};
+const String cc[12]={"45","40","35","30","25","20","15","10","05","0","55","50"};
+const String days[]={"SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY","NANDAY"};
+const String months[]={"JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC","UND"};
 int start[12];
 int startP[60];
 
@@ -60,12 +68,53 @@ int rAngle=359;
 
 long tCircle=0;
 
+/* cmode
+    0: normal clock
+    1: WiFi connecting
+    2: NTP connecting
+*/
+int cmode=0; 
+
+
+void sync_ntp(){
+DEBUGTRACEMARK("n");
+
+  switch(cmode){
+    case 0:
+      WiFi.disconnect();
+      cmode=1;
+      if(!wifi_ssid){
+        WiFi.begin();
+      } else {
+        WiFi.begin(wifi_ssid, wifi_passphrase);
+      }
+      break;
+    case 1:
+      if(WiFi.status() == WL_CONNECTED) {
+        cmode=2;
+      } else {
+        Serial.print(".");
+      }
+      break;
+    case 2:
+      struct tm ti;
+      configTime(9 * 3600L, 0, "ntp.nict.jp", "time.google.com", "ntp.jst.mfeed.ad.jp");
+      getLocalTime(&ti);
+      struct tm dt;
+//      M5Dial.Rtc.setDateTime( { { ti.tm_year, ti.tm_mon+1, ti.tm_mday }, { ti.tm_hour, ti.tm_min, ti.tm_sec } } );  
+      M5Dial.Rtc.setDateTime( ti );  
+      WiFi.disconnect();
+      cmode=0;
+  }
+DEBUGTRACEMARK("m");
+}
+
 void setup() {
 
    auto cfg = M5.config();
+//    Serial.begin(115200);
     M5Dial.begin(cfg, true, true);
 
-    M5Dial.Rtc.setDateTime( { { 2023, 10, 25 }, { 15, 56, 56 } } );
     sprite.createSprite(240,240);
    
     sprite.setSwapBytes(true);    
@@ -106,16 +155,30 @@ int b2=0;
 
 int inc=0;
 
-void loop() {
-
+void loop_0() {
+DEBUGTRACEMARK("L0");
 auto dt = M5Dial.Rtc.getDateTime();
+DEBUGTRACEMARK("R");
 
+if(dt.date.month==0 || dt.date.date==0) {
+  sync_ntp();
+  return;
+}
+
+if(dt.time.hours>23 || dt.time.minutes>59) return; // skip when strange result
+DEBUGTRACEMARK("C");
 
  rAngle=rAngle-3;
  angle=dt.time.seconds*6; 
 
 if(dt.time.seconds<10) s="0"+String(dt.time.seconds); else s=String(dt.time.seconds);
 
+if(dt.time.minutes<10) m="0"+String(dt.time.minutes); else m=String(dt.time.minutes);
+if(dt.time.hours<10) h="0"+String(dt.time.hours); else h=String(dt.time.hours);
+d1=String(dt.date.date/10);d2=String(dt.date.date%10);
+m1=String(dt.date.month/10);m2=String(dt.date.month%10);
+
+DEBUGTRACEMARK("D");
   
   if(angle>=360)
   angle=0;
@@ -135,8 +198,6 @@ if(dt.time.seconds<10) s="0"+String(dt.time.seconds); else s=String(dt.time.seco
   if(circle<100)
   dir=!dir;
 
-
-
   if(angle>-1)
   {
      lastAngle=angle;      
@@ -145,7 +206,6 @@ if(dt.time.seconds<10) s="0"+String(dt.time.seconds); else s=String(dt.time.seco
      if(VALUE<0)
      VALUE=VALUE+100;
  
-     
      
  sprite.fillSprite(TFT_BLACK);
 sprite.setTextColor(TFT_WHITE,color5);
@@ -163,11 +223,14 @@ sprite.loadFont(smallFont);
   sprite.fillRect(144,82,16,28,grays[8]);
  sprite.fillRect(164,82,16,28,grays[8]);
 
- sprite.setTextColor(0x35D7,TFT_BLACK);
- sprite.drawString("MON",80,72);
- sprite.drawString("DAY",160,72);
- sprite.unloadFont();
+Serial.printf("S[%d,%d]",dt.date.weekDay,dt.date.month);
 
+ sprite.setTextColor(0x35D7,TFT_BLACK);
+ sprite.drawString(days[dt.date.weekDay].substring(0,3),160,72);
+ sprite.setTextColor(0x35D700,TFT_BLACK);
+ sprite.drawString(months[dt.date.month-1],80,72);
+// sprite.drawString("DAY",160,72);
+ sprite.unloadFont();
   sprite.loadFont(middleFont);
   sprite.setTextColor(grays[2],grays[8]);
   sprite.drawString(m1,71,99,2);
@@ -176,18 +239,21 @@ sprite.loadFont(smallFont);
   sprite.drawString(d2,170,99,2);
   sprite.unloadFont();
 
+DEBUGTRACEMARK("F");
 
    sprite.loadFont(bigFont);
    sprite.setTextColor(grays[0],TFT_BLACK);
    sprite.drawString(h+":"+m,sx,sy+32);
    sprite.unloadFont();
 
+/* move to loop()
    sprite.loadFont(Noto);
    sprite.setTextColor(0xA380,TFT_BLACK);
    sprite.drawString("VOLOS",120,190);
    sprite.drawString("***",120,114);
+*/
    sprite.setTextColor(grays[3],TFT_BLACK);
- 
+
   for(int i=0;i<60;i++)
   if(startP[i]+angle<360)
  sprite.fillSmoothCircle(px[startP[i]+angle],py[startP[i]+angle],1,grays[4],TFT_BLACK);
@@ -207,9 +273,53 @@ sprite.loadFont(smallFont);
  
    sprite.drawWedgeLine(sx-1,sy-82,sx-1,sy-70,1,5,0xA380,TFT_BLACK);
    sprite.fillSmoothCircle(px[rAngle],py[rAngle],4,TFT_RED,TFT_BLACK);
+/* move to loop()
    M5Dial.Display.pushImage(0,0,240,240,(uint16_t*)sprite.getPointer());
+*/
    sprite.unloadFont();
- 
+DEBUGTRACEMARK("X");
+}
 }
 
+void loop() {
+  M5Dial.update();
+Serial.print("l");
+
+  switch(cmode){
+    case 0:
+      loop_0(); 
+      if(M5.BtnA.wasPressed()){
+        Serial.println("pressed");
+        sync_ntp();
+      }
+      break;
+    case 1: case 2:
+      sync_ntp(); break;
+    default:
+      Serial.print("*");
+      break;
+  }
+DEBUGTRACEMARK("s");
+
+//   sprite.drawString("VOLOS",120,190);
+  sprite.loadFont(Noto);   // blink *** mark by cmode
+  if(cmode!=0){
+    uint32_t t500=(millis()%1000);
+    if(t500>=500) t500=1000-t500;
+    uint16_t col=    // 0xa380 =RGB(0x14,0xx1c,0)
+      (((t500*0x14/500) & 0x1f)<<11) +
+      (((t500*0x1c/500) & 0x3f)<<5) +
+      ( (t500*0x00/500) & 0x1f);
+    sprite.setTextColor(col,TFT_BLACK);
+    sprite.drawString("***",120,114);
+//   sprite.fillRect(120,114,50,30,TFT_BLUE);
+  } else {
+    sprite.setTextColor(0xA380,TFT_BLACK);
+    sprite.drawString("***",120,114);
+  }
+DEBUGTRACEMARK("p");
+
+  M5Dial.Display.pushImage(0,0,240,240,(uint16_t*)sprite.getPointer());
+  delay(20);
+DEBUGTRACEMARK("x\n");
 }
