@@ -2,11 +2,6 @@
 #include "M5Dial.h"
 #include "WiFi.h"
 
-#define DEBUGTRACEMARK(s) Serial.printf(s)
-
-const char* wifi_ssid=nullptr;  //  enter your wifi ssid. if nullptr, use ssid of the previous successful connection
-const char* wifi_passphrase="PASSPHRASE";
-
 M5Canvas img(&M5Dial.Display);
 
 #include <TFT_eSPI.h>
@@ -77,17 +72,10 @@ int cmode=0;
 
 
 void sync_ntp(){
-DEBUGTRACEMARK("n");
-
   switch(cmode){
     case 0:
-      WiFi.disconnect();
       cmode=1;
-      if(!wifi_ssid){
-        WiFi.begin();
-      } else {
-        WiFi.begin(wifi_ssid, wifi_passphrase);
-      }
+      WiFi.begin();
       break;
     case 1:
       if(WiFi.status() == WL_CONNECTED) {
@@ -100,21 +88,19 @@ DEBUGTRACEMARK("n");
       struct tm ti;
       configTime(9 * 3600L, 0, "ntp.nict.jp", "time.google.com", "ntp.jst.mfeed.ad.jp");
       getLocalTime(&ti);
-      struct tm dt;
-//      M5Dial.Rtc.setDateTime( { { ti.tm_year, ti.tm_mon+1, ti.tm_mday }, { ti.tm_hour, ti.tm_min, ti.tm_sec } } );  
-      M5Dial.Rtc.setDateTime( ti );  
+      M5Dial.Rtc.setDateTime( { { ti.tm_year, ti.tm_mon+1, ti.tm_mday }, { ti.tm_hour, ti.tm_min, ti.tm_sec } } );  
       WiFi.disconnect();
       cmode=0;
   }
-DEBUGTRACEMARK("m");
 }
 
 void setup() {
 
    auto cfg = M5.config();
-//    Serial.begin(115200);
+    Serial.begin(115200);
     M5Dial.begin(cfg, true, true);
 
+//    M5Dial.Rtc.setDateTime( { { 2023, 11, 11 }, { 03, 23, 30 } } );
     sprite.createSprite(240,240);
    
     sprite.setSwapBytes(true);    
@@ -156,17 +142,13 @@ int b2=0;
 int inc=0;
 
 void loop_0() {
-DEBUGTRACEMARK("L0");
+
 auto dt = M5Dial.Rtc.getDateTime();
-DEBUGTRACEMARK("R");
 
 if(dt.date.month==0 || dt.date.date==0) {
   sync_ntp();
-  return;
+  dt = M5Dial.Rtc.getDateTime();
 }
-
-if(dt.time.hours>23 || dt.time.minutes>59) return; // skip when strange result
-DEBUGTRACEMARK("C");
 
  rAngle=rAngle-3;
  angle=dt.time.seconds*6; 
@@ -178,7 +160,8 @@ if(dt.time.hours<10) h="0"+String(dt.time.hours); else h=String(dt.time.hours);
 d1=String(dt.date.date/10);d2=String(dt.date.date%10);
 m1=String(dt.date.month/10);m2=String(dt.date.month%10);
 
-DEBUGTRACEMARK("D");
+
+
   
   if(angle>=360)
   angle=0;
@@ -198,6 +181,8 @@ DEBUGTRACEMARK("D");
   if(circle<100)
   dir=!dir;
 
+
+
   if(angle>-1)
   {
      lastAngle=angle;      
@@ -206,6 +191,7 @@ DEBUGTRACEMARK("D");
      if(VALUE<0)
      VALUE=VALUE+100;
  
+     
      
  sprite.fillSprite(TFT_BLACK);
 sprite.setTextColor(TFT_WHITE,color5);
@@ -223,10 +209,8 @@ sprite.loadFont(smallFont);
   sprite.fillRect(144,82,16,28,grays[8]);
  sprite.fillRect(164,82,16,28,grays[8]);
 
-Serial.printf("S[%d,%d]",dt.date.weekDay,dt.date.month);
-
  sprite.setTextColor(0x35D7,TFT_BLACK);
- sprite.drawString(days[dt.date.weekDay].substring(0,3),160,72);
+ sprite.drawString(days[dt.date.weekDay-1].substring(0,3),160,72);
  sprite.setTextColor(0x35D700,TFT_BLACK);
  sprite.drawString(months[dt.date.month-1],80,72);
 // sprite.drawString("DAY",160,72);
@@ -239,7 +223,6 @@ Serial.printf("S[%d,%d]",dt.date.weekDay,dt.date.month);
   sprite.drawString(d2,170,99,2);
   sprite.unloadFont();
 
-DEBUGTRACEMARK("F");
 
    sprite.loadFont(bigFont);
    sprite.setTextColor(grays[0],TFT_BLACK);
@@ -253,7 +236,7 @@ DEBUGTRACEMARK("F");
    sprite.drawString("***",120,114);
 */
    sprite.setTextColor(grays[3],TFT_BLACK);
-
+ 
   for(int i=0;i<60;i++)
   if(startP[i]+angle<360)
  sprite.fillSmoothCircle(px[startP[i]+angle],py[startP[i]+angle],1,grays[4],TFT_BLACK);
@@ -277,13 +260,13 @@ DEBUGTRACEMARK("F");
    M5Dial.Display.pushImage(0,0,240,240,(uint16_t*)sprite.getPointer());
 */
    sprite.unloadFont();
-DEBUGTRACEMARK("X");
+ 
 }
+
 }
 
 void loop() {
   M5Dial.update();
-Serial.print("l");
 
   switch(cmode){
     case 0:
@@ -299,7 +282,6 @@ Serial.print("l");
       Serial.print("*");
       break;
   }
-DEBUGTRACEMARK("s");
 
 //   sprite.drawString("VOLOS",120,190);
   sprite.loadFont(Noto);   // blink *** mark by cmode
@@ -317,9 +299,6 @@ DEBUGTRACEMARK("s");
     sprite.setTextColor(0xA380,TFT_BLACK);
     sprite.drawString("***",120,114);
   }
-DEBUGTRACEMARK("p");
-
   M5Dial.Display.pushImage(0,0,240,240,(uint16_t*)sprite.getPointer());
   delay(20);
-DEBUGTRACEMARK("x\n");
 }
