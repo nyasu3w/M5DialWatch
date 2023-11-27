@@ -3,6 +3,9 @@ Thanks to VolosR, I can have a good M5Dial watch design (watchESPI.ino). I updat
 
 Now only watchESPI is updated in devel branch.
 
+![image](https://github.com/nyasu3w/M5DialWatch/assets/125797829/018c97c2-2c8a-4049-90c5-f73931992601)
+
+
 ## Note
 - After boot-up, M5Dial will connect to WiFi AP if system time looks wrong.
 - If WiFi connection successful, adjust system clock with NTP server. While connecting WiFi, 3 stars blink at the center of LCD.
