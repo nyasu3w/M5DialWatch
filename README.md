@@ -1,13 +1,11 @@
 
-(due to mistakes at git rebase, some changes are not applied to the current repository for now)
-
 Thanks to VolosR, I can have a good M5Dial watch design (watchESPI.ino). I updated the code to show real time and to adjust with NTP server.
 
 Now only watchESPI is updated in devel branch.
 
 ## Note
-- After boot-up, M5Dial will connect to WiFi AP
-- If WiFi connection successful, adjust system clock with NTP server. At this timing, 3 stars blink at the center of LCD.
+- After boot-up, M5Dial will connect to WiFi AP if system time looks wrong.
+- If WiFi connection successful, adjust system clock with NTP server. While connecting WiFi, 3 stars blink at the center of LCD.
 - When Btn of M5Dial is pressed, the system clock is adjusted with NTP server. 3 stars blink and the other display is freezed.
 
 
