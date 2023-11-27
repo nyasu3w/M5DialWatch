@@ -1,4 +1,6 @@
 
+(due to mistakes at git rebase, some changes are not applied to the current repository for now)
+
 Thanks to VolosR, I can have a good M5Dial watch design (watchESPI.ino). I updated the code to show real time and to adjust with NTP server.
 
 Now only watchESPI is updated in devel branch.
